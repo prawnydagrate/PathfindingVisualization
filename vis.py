@@ -219,12 +219,18 @@ def explore_step():
         if xn is None:
             xn = XNode(newg, newh, npos, from_=cell)
             xnodes.append(xn)
+            continue
         if xn.closed:
             continue
-        if newg + newh < xn.f:
-            xn.g = newg
-            xn.h = newh
-            xn.from_ = cell
+        # BUGFIX
+        # if newg + newh < xn.f:
+        #     xn.g = newg
+        #     xn.h = newh
+        #     xn.from_ = cell
+        xn.g = newg
+        xn.h = newh
+        xn.from_ = cell
+
 
 
 # constants
