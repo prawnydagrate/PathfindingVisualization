@@ -271,6 +271,8 @@ ldragging = False
 lmoved = False
 rdragging = False
 rmoved = False
+mdown = False
+mmoved = False
 shift = False
 
 exploring = False
@@ -314,10 +316,6 @@ while True:
                             exploring = True
                         if exploring:
                             explore_step()
-                            print("AFTER EXPLORATION")
-                            for x in sorted(xnodes):
-                                print(x)
-                            print()
                     case pygame.K_x:
                         if shift:
                             obstacles.clear()
@@ -344,6 +342,9 @@ while True:
                         case pygame.BUTTON_RIGHT:
                             rdragging = True
                             rmoved = False
+                        case pygame.BUTTON_MIDDLE:
+                            mdown = True
+                            mmoved = False
             case pygame.MOUSEMOTION:
                 if not exploring:
                     if ldragging:
@@ -364,6 +365,8 @@ while True:
                             and not xnodes
                         ):
                             obstacles.remove(hovered)
+                    elif mdown:
+                        mmoved = True
             case pygame.MOUSEBUTTONUP:
                 if not exploring:
                     if ldragging:
@@ -395,12 +398,15 @@ while True:
                                 rmoved = False
                                 rdragging = False
                             case pygame.BUTTON_MIDDLE:  # end cell
-                                if not xnodes:
-                                    sel = get_hovered_cell()
-                                    if end_cell == sel:
-                                        end_cell = None
-                                    elif start_cell != sel and sel not in obstacles:
-                                        end_cell = sel
+                                if not mmoved:
+                                    if not xnodes:
+                                        sel = get_hovered_cell()
+                                        if end_cell == sel:
+                                            end_cell = None
+                                        elif start_cell != sel and sel not in obstacles:
+                                            end_cell = sel
+                                mdown = False
+                                mmoved = False
             case _:
                 pass
 
