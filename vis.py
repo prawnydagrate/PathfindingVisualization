@@ -178,12 +178,14 @@ def distance(pos1: tuple[int, int], pos2: tuple[int, int]) -> int:
 
 
 def explore_step():
-    global exploring
+    global exploring, fast
     if not exploring or start_cell is None or end_cell is None:
+        fast = False
         return
     if len(xnodes) > 0:
         xns = list(xn for xn in xnodes if not xn.closed)
         if len(xns) == 0:
+            fast = False
             return
         cell = min(xns)
     else:
@@ -207,6 +209,7 @@ def explore_step():
             c = cell
             while (c := c.from_) is not None:
                 c.path = True
+            fast = False
             return
         if npos in obstacles or npos == start_cell:
             continue
@@ -241,7 +244,7 @@ cell_color_hover = "#d6d6d6"
 start_cell_color = "lightgreen"
 end_cell_color = "#ff8f8f"
 
-obstacle_color = "#888888"
+obstacle_color = "#5f5f5f"
 
 xnode_color = "#e3e3e3"
 xnode_color_path = "#ffff8f"
@@ -251,6 +254,8 @@ h_multiplier = 1000
 border_color = "#333333"
 
 caption = "A* Pathfinding Visualization"
+
+EXPLOREEVENT = pygame.USEREVENT + 1
 
 # initialize pygame window
 pygame.init()
@@ -276,7 +281,10 @@ mmoved = False
 shift = False
 
 exploring = False
+fast = False
 xnodes = []
+
+pygame.time.set_timer(EXPLOREEVENT, 30)
 
 while True:
     # handle events
@@ -316,6 +324,22 @@ while True:
                             exploring = True
                         if exploring:
                             explore_step()
+                    case pygame.K_EQUALS:
+                        if (
+                            not any(
+                                (
+                                    ldragging,
+                                    lmoved,
+                                    rdragging,
+                                    rmoved,
+                                    # exploring,
+                                    # xnodes,
+                                )
+                            )
+                            and validate_selections()
+                        ):
+                            exploring = True
+                            fast = True
                     case pygame.K_x:
                         if shift:
                             obstacles.clear()
@@ -324,6 +348,7 @@ while True:
                             rdragging = False
                             rmoved = False
                         exploring = False
+                        fast = False
                         xnodes.clear()
                     case _:
                         pass
@@ -407,8 +432,10 @@ while True:
                                             end_cell = sel
                                 mdown = False
                                 mmoved = False
-            case _:
-                pass
+            case glob:
+                if fast and glob == EXPLOREEVENT:
+                    if exploring:
+                        explore_step()
 
     # draw borders
     scr.fill(border_color)
