@@ -1,4 +1,8 @@
 import math
+import os
+import sys
+import json
+import time
 from functools import total_ordering
 from typing import Self
 
@@ -55,14 +59,14 @@ def validate_selections():
 
 def increase_cols():
     global cols
-    if cols < 64:
+    if cols < cols_max:
         cols += 8
         update()
 
 
 def decrease_cols():
     global cols
-    if cols > 8:
+    if cols > cols_min:
         cols -= 8
         update()
 
@@ -235,7 +239,8 @@ scr_width = 960
 scr_height = 600
 scr_size = (scr_width, scr_height)
 
-cols = 32
+cols_min = 8
+cols_max = 64
 border = 1
 
 cell_color = "#efefef"
@@ -263,18 +268,45 @@ scr = pygame.display.set_mode(scr_size)
 pygame.display.set_caption(caption)
 
 # initialize variables
+saved_state = {}
+
+if (
+    len(sys.argv) == 2
+    and os.path.isfile(sfname := sys.argv[1])
+    and os.path.splitext(sfname)[1] == ".json"
+):
+    with open(sfname, "rb") as sf:
+        saved_state = json.load(sf)
+
+cols = (
+    c
+    if isinstance(c := saved_state.get("cols"), int) and cols_min <= c <= cols_max
+    else 32
+)
 rows = 0
 cell_size = 0
 cells = []
 update()
 
-start_cell = None
-end_cell = None
-obstacles = []
+start_cell = (
+    tuple(s)
+    if isinstance(s := saved_state.get("startCell"), list) and len(s) == 2
+    else None
+)
+end_cell = (
+    tuple(e)
+    if isinstance(e := saved_state.get("endCell"), list) and len(e) == 2
+    else None
+)
+obstacles = (
+    [tuple(o) for o in os if isinstance(o, list) and len(o) == 2]
+    if isinstance(os := saved_state.get("obstacles"), list)
+    else []
+)
 
-ldragging = False
+ldown = False
 lmoved = False
-rdragging = False
+rdown = False
 rmoved = False
 mdown = False
 mmoved = False
@@ -284,7 +316,7 @@ exploring = False
 fast = False
 xnodes = []
 
-pygame.time.set_timer(EXPLOREEVENT, 30)
+pygame.time.set_timer(EXPLOREEVENT, 20)
 
 while True:
     # handle events
@@ -301,6 +333,22 @@ while True:
                         pass
             case pygame.KEYUP:
                 match event.key:
+                    case pygame.K_w:
+                        if not shift:
+                            fname = (
+                                f"PathfindingVisualization_State-{time.time_ns()}.json"
+                            )
+                            with open(fname, "w") as f:
+                                json.dump(
+                                    {
+                                        "startCell": start_cell,
+                                        "endCell": end_cell,
+                                        "obstacles": obstacles,
+                                        "cols": cols,
+                                    },
+                                    f,
+                                )
+                            print(f"Current state written to {fname}!")
                     case pygame.K_LSHIFT | pygame.K_RSHIFT:
                         shift = False
                     case pygame.K_UP:
@@ -311,9 +359,9 @@ while True:
                         if (
                             not any(
                                 (
-                                    ldragging,
+                                    ldown,
                                     lmoved,
-                                    rdragging,
+                                    rdown,
                                     rmoved,
                                     exploring,
                                     xnodes,
@@ -328,9 +376,9 @@ while True:
                         if (
                             not any(
                                 (
-                                    ldragging,
+                                    ldown,
                                     lmoved,
-                                    rdragging,
+                                    rdown,
                                     rmoved,
                                     # exploring,
                                     # xnodes,
@@ -343,9 +391,9 @@ while True:
                     case pygame.K_x:
                         if shift:
                             obstacles.clear()
-                            ldragging = False
+                            ldown = False
                             lmoved = False
-                            rdragging = False
+                            rdown = False
                             rmoved = False
                         exploring = False
                         fast = False
@@ -362,17 +410,17 @@ while True:
                 if not exploring:
                     match event.button:
                         case pygame.BUTTON_LEFT:
-                            ldragging = True
+                            ldown = True
                             lmoved = False
                         case pygame.BUTTON_RIGHT:
-                            rdragging = True
+                            rdown = True
                             rmoved = False
                         case pygame.BUTTON_MIDDLE:
                             mdown = True
                             mmoved = False
             case pygame.MOUSEMOTION:
                 if not exploring:
-                    if ldragging:
+                    if ldown:
                         lmoved = True
                         if (
                             (hovered := get_hovered_cell())
@@ -382,7 +430,7 @@ while True:
                             and not xnodes
                         ):
                             obstacles.append(hovered)
-                    elif rdragging:
+                    elif rdown:
                         rmoved = True
                         if (
                             (hovered := get_hovered_cell())
@@ -394,7 +442,7 @@ while True:
                         mmoved = True
             case pygame.MOUSEBUTTONUP:
                 if not exploring:
-                    if ldragging:
+                    if ldown:
                         if event.button == pygame.BUTTON_LEFT:
                             hovered = get_hovered_cell()
                             if (
@@ -409,7 +457,7 @@ while True:
                                     obstacles.remove(hovered)
                                 elif start_cell != hovered != end_cell:
                                     obstacles.append(hovered)
-                            ldragging = False
+                            ldown = False
                             lmoved = False
                     else:
                         match event.button:
@@ -421,7 +469,7 @@ while True:
                                     elif end_cell != sel and sel not in obstacles:
                                         start_cell = sel
                                 rmoved = False
-                                rdragging = False
+                                rdown = False
                             case pygame.BUTTON_MIDDLE:  # end cell
                                 if not mmoved:
                                     if not xnodes:

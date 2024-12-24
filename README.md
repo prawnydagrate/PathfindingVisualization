@@ -12,12 +12,18 @@ This project uses Pygame to simulate the A\* pathfinding algorithm.
 - Right click and drag to delete multiple obstacles
 
 - Press <kbd>Space</kbd> to explore one step deeper in the algorithm (this is also used to begin pathfinding)
-- Press <kbd>&equals;</kbd> as the equivalent of repeatedly hitting <kbd>Space</kbd> (once every 30 milliseconds) until the shortest path has been found
+- Press <kbd>&equals;</kbd> as the equivalent of repeatedly hitting <kbd>Space</kbd> (once every 20 milliseconds) until the shortest path has been found
 - Press <kbd>X</kbd> to clear the nodes explored by the algorithm
 
 - Press <kbd>Shift</kbd>+<kbd>X</kbd> to clear everything
 
 - Scroll to change the grid size
+
+- Press <kbd>W</kbd> to write the current state (starting point, ending point, and obstacles) to a JSON file. This state can be loaded by running the program with the path to the file. For example:
+
+```bash
+python3 main.py PathfindingVisualization_State-1735065000000000000.json
+```
 
 ## Installation
 
