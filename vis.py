@@ -245,7 +245,7 @@ obstacle_color = "#888888"
 
 xnode_color = "#e3e3e3"
 xnode_color_path = "#ffff8f"
-xnode_color_closed = "#b4b4b4"
+xnode_color_closed = "#cccccc"
 h_multiplier = 1000
 
 border_color = "#333333"
