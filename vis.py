@@ -174,7 +174,7 @@ class XNode:
 def distance(pos1: tuple[int, int], pos2: tuple[int, int]) -> int:
     r1, c1 = pos1
     r2, c2 = pos2
-    return math.floor(math.sqrt((r2 - r1) ** 2 + (c2 - c1) ** 2) * h_multiplier)
+    return round(math.sqrt((r2 - r1) ** 2 + (c2 - c1) ** 2) * h_multiplier)
 
 
 def explore_step():
@@ -222,15 +222,9 @@ def explore_step():
             continue
         if xn.closed:
             continue
-        # BUGFIX
-        # if newg + newh < xn.f:
-        #     xn.g = newg
-        #     xn.h = newh
-        #     xn.from_ = cell
-        xn.g = newg
-        xn.h = newh
-        xn.from_ = cell
-
+        if newg < xn.g:
+            xn.g = newg
+            xn.from_ = cell
 
 
 # constants
