@@ -1,12 +1,11 @@
+from xnode import XNode
 import math
 import os
 import sys
-import json
 import time
-from functools import total_ordering
-from typing import Self
 
-import pygame
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
+pygame = __import__("pygame")
 
 
 # helpers
@@ -57,122 +56,24 @@ def validate_selections():
     )
 
 
+def fix_cols():
+    global cols
+    if cols not in range(cols_min, cols_max + 1, cols_step):
+        cols = cols_default
+
+
 def increase_cols():
     global cols
     if cols < cols_max:
-        cols += 8
+        cols += cols_step
         update()
 
 
 def decrease_cols():
     global cols
     if cols > cols_min:
-        cols -= 8
+        cols -= cols_step
         update()
-
-
-@total_ordering
-class XNode:
-    def __init__(
-        self,
-        g: int,
-        h: int,
-        pos: tuple[int, int],
-        closed: bool = False,
-        from_: Self | None = None,
-        path: bool = False,
-    ):
-        self._g = g
-        self._h = h
-        self._pos = pos
-        self._closed = closed
-        self._from = from_
-        self._path = path
-
-    @property
-    def f(self):
-        return self._g + self._h
-
-    @property
-    def g(self):
-        return self._g
-
-    @g.setter
-    def g(self, value: int):
-        self._g = value
-
-    @property
-    def h(self):
-        return self._h
-
-    @h.setter
-    def h(self, value: int):
-        self._h = value
-
-    @property
-    def cost(self):
-        return (self._h + self._g, self._h, self._g)
-
-    @property
-    def pos(self):
-        return self._pos
-
-    @property
-    def closed(self):
-        return self._closed
-
-    @closed.setter
-    def closed(self, value: bool):
-        self._closed = value
-
-    @property
-    def from_(self):
-        return self._from
-
-    @from_.setter
-    def from_(self, value: Self | None):
-        self._from = value
-
-    @property
-    def path(self):
-        return self._path
-
-    @path.setter
-    def path(self, value: bool):
-        self._path = value
-
-    def __repr__(self):
-        return f"XNode(f={self.f}, h={self._h}, g={self._g}, pos={self._pos}, closed={self._closed}, path={self._path})"
-
-    def __eq__(self, other):
-        return (
-            self.cost == other.cost and self._pos == other._pos
-            if self.__class__ is other.__class__
-            else NotImplemented
-        )
-
-    def __ne__(self, other):
-        eq = self.__eq__(other)
-        return NotImplemented if eq is NotImplemented else not eq
-
-    def __hash__(self):
-        return hash((self.f, self.g, self.h, self.pos))
-
-    def __lt__(self, other):
-        return (
-            self.cost < other.cost
-            if self.__class__ is other.__class__
-            else NotImplemented
-        )
-
-    # def __le__(self, other):
-    #     return self._cost <= other._cost if self.__class__ is other.__class__ else NotImplemented
-
-    # def __gt__(self, other):
-    #     return self._cost > other._cost if self.__class__ is other.__class__ else NotImplemented
-
-    # def __ge__(self, other):
-    #     return self._cost >= other._cost if self.__class__ is other.__class__ else NotImplemented
 
 
 def distance(pos1: tuple[int, int], pos2: tuple[int, int]) -> int:
@@ -234,13 +135,78 @@ def explore_step():
             xn.from_ = cell
 
 
+def save_state():
+    fname = f"PathfindingVisualization_State-{time.time_ns()}.{ss}"
+    with open(fname, "wb") as f:
+        ss_mod.dump(
+            {
+                ss_start_cell_key: start_cell,
+                ss_end_cell_key: end_cell,
+                ss_obstacles_key: obstacles,
+                ss_cols_key: cols,
+            },
+            f,
+        )
+    print(f"Current state written to {fname}!")
+
+
+def load_state():
+    global cols, rows, cell_size, cells, start_cell, end_cell, obstacles
+    saved_state = {}
+    if (
+        len(sys.argv) == 2
+        and os.path.isfile(sfname := sys.argv[1])
+        and os.path.splitext(sfname)[1] == f".{ss}"
+    ):
+        with open(sfname, "rb") as sf:
+            s = ss_mod.load(sf)
+            if isinstance(s, dict):
+                saved_state = s
+    cols = c if isinstance(c := saved_state.get(ss_cols_key), int) else cols_default
+    fix_cols()
+    rows = 0
+    cell_size = 0
+    cells = []
+    update()
+    start_cell = (
+        tuple(s)
+        if isinstance(s := saved_state.get(ss_start_cell_key), list)
+        or isinstance(s, tuple)
+        and len(s) == 2
+        else None
+    )
+    end_cell = (
+        tuple(e)
+        if isinstance(e := saved_state.get(ss_end_cell_key), list)
+        or isinstance(e, tuple)
+        and len(e) == 2
+        else None
+    )
+    obstacles = (
+        [
+            tuple(o)
+            for o in obs
+            if isinstance(o, list) or isinstance(o, tuple) and len(o) == 2
+        ]
+        if isinstance(obs := saved_state.get(ss_obstacles_key), list)
+        or isinstance(obs, tuple)
+        else []
+    )
+    if start_cell in obstacles:
+        start_cell = None
+    if end_cell in obstacles:
+        end_cell = None
+
+
 # constants
 scr_width = 960
 scr_height = 600
 scr_size = (scr_width, scr_height)
 
+cols_default = 32
 cols_min = 8
 cols_max = 64
+cols_step = 8
 border = 1
 
 cell_color = "#efefef"
@@ -260,6 +226,14 @@ border_color = "#333333"
 
 caption = "A* Pathfinding Visualization"
 
+
+ss = "pickle"
+ss_mod = __import__(ss)
+ss_start_cell_key = "start_cell"
+ss_end_cell_key = "end_cell"
+ss_obstacles_key = "obstacles"
+ss_cols_key = "cols"
+
 EXPLOREEVENT = pygame.USEREVENT + 1
 
 # initialize pygame window
@@ -268,41 +242,14 @@ scr = pygame.display.set_mode(scr_size)
 pygame.display.set_caption(caption)
 
 # initialize variables
-saved_state = {}
-
-if (
-    len(sys.argv) == 2
-    and os.path.isfile(sfname := sys.argv[1])
-    and os.path.splitext(sfname)[1] == ".json"
-):
-    with open(sfname, "rb") as sf:
-        saved_state = json.load(sf)
-
-cols = (
-    c
-    if isinstance(c := saved_state.get("cols"), int) and cols_min <= c <= cols_max
-    else 32
-)
+cols = 0
 rows = 0
 cell_size = 0
 cells = []
-update()
-
-start_cell = (
-    tuple(s)
-    if isinstance(s := saved_state.get("startCell"), list) and len(s) == 2
-    else None
-)
-end_cell = (
-    tuple(e)
-    if isinstance(e := saved_state.get("endCell"), list) and len(e) == 2
-    else None
-)
-obstacles = (
-    [tuple(o) for o in os if isinstance(o, list) and len(o) == 2]
-    if isinstance(os := saved_state.get("obstacles"), list)
-    else []
-)
+start_cell = None
+end_cell = None
+obstacles = []
+load_state()
 
 ldown = False
 lmoved = False
@@ -316,7 +263,7 @@ exploring = False
 fast = False
 xnodes = []
 
-pygame.time.set_timer(EXPLOREEVENT, 20)
+pygame.time.set_timer(EXPLOREEVENT, 10)
 
 while True:
     # handle events
@@ -335,20 +282,7 @@ while True:
                 match event.key:
                     case pygame.K_w:
                         if not shift:
-                            fname = (
-                                f"PathfindingVisualization_State-{time.time_ns()}.json"
-                            )
-                            with open(fname, "w") as f:
-                                json.dump(
-                                    {
-                                        "startCell": start_cell,
-                                        "endCell": end_cell,
-                                        "obstacles": obstacles,
-                                        "cols": cols,
-                                    },
-                                    f,
-                                )
-                            print(f"Current state written to {fname}!")
+                            save_state()
                     case pygame.K_LSHIFT | pygame.K_RSHIFT:
                         shift = False
                     case pygame.K_UP:
