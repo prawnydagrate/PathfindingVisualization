@@ -88,14 +88,15 @@ def explore_step():
         fast = False
         return
     if len(xnodes) > 0:
-        xns = list(xn for xn in xnodes if not xn.closed)
+        xns = list(xn for _, xn in xnodes.items() if not xn.closed)
         if len(xns) == 0:
+            exploring = False
             fast = False
             return
         cell = min(xns)
     else:
         cell = XNode(0, distance(start_cell, end_cell), start_cell)
-        xnodes.append(cell)
+        xnodes[cell.pos] = cell
     cell.closed = True
     r, c = cell.pos
     for npos in (
@@ -116,17 +117,17 @@ def explore_step():
                 c.path = True
             fast = False
             return
-        if npos in obstacles or npos == start_cell:
+        if obstacles.get(npos) or npos == start_cell:
             continue
         nr, nc = npos
         if not (0 <= nr < rows and 0 <= nc < cols):
             continue
         newg = cell.g + distance(cell.pos, npos)
         newh = distance(npos, end_cell)
-        xn = next((xn for xn in xnodes if xn.pos == npos), None)
+        xn = xnodes.get(npos)
         if xn is None:
             xn = XNode(newg, newh, npos, from_=cell)
-            xnodes.append(xn)
+            xnodes[npos] = xn
             continue
         if xn.closed:
             continue
@@ -142,7 +143,7 @@ def save_state():
             {
                 ss_start_cell_key: start_cell,
                 ss_end_cell_key: end_cell,
-                ss_obstacles_key: obstacles,
+                ss_obstacles_key: [k for k in obstacles if obstacles[k]],
                 ss_cols_key: cols,
             },
             f,
@@ -182,7 +183,7 @@ def load_state():
         and len(e) == 2
         else None
     )
-    obstacles = (
+    lobstacles = (
         [
             tuple(o)
             for o in obs
@@ -192,9 +193,10 @@ def load_state():
         or isinstance(obs, tuple)
         else []
     )
-    if start_cell in obstacles:
+    obstacles = {k: True for k in lobstacles}
+    if obstacles.get(start_cell):
         start_cell = None
-    if end_cell in obstacles:
+    if obstacles.get(end_cell):
         end_cell = None
 
 
@@ -248,7 +250,7 @@ cell_size = 0
 cells = []
 start_cell = None
 end_cell = None
-obstacles = []
+obstacles = {}
 load_state()
 
 ldown = False
@@ -261,7 +263,7 @@ shift = False
 
 exploring = False
 fast = False
-xnodes = []
+xnodes = {}
 
 pygame.time.set_timer(EXPLOREEVENT, 10)
 
@@ -360,18 +362,18 @@ while True:
                             (hovered := get_hovered_cell())
                             and start_cell != hovered
                             and end_cell != hovered
-                            and hovered not in obstacles
+                            and not obstacles.get(hovered)
                             and not xnodes
                         ):
-                            obstacles.append(hovered)
+                            obstacles[hovered] = True
                     elif rdown:
                         rmoved = True
                         if (
                             (hovered := get_hovered_cell())
-                            and hovered in obstacles
+                            and obstacles.get(hovered)
                             and not xnodes
                         ):
-                            obstacles.remove(hovered)
+                            del obstacles[hovered]
                     elif mdown:
                         mmoved = True
             case pygame.MOUSEBUTTONUP:
@@ -382,15 +384,15 @@ while True:
                             if (
                                 lmoved
                                 and hovered
-                                and hovered not in obstacles
+                                and not obstacles.get(hovered)
                                 and not xnodes
                             ):
-                                obstacles.append(hovered)
+                                obstacles[hovered] = True
                             elif not lmoved and not xnodes:
-                                if hovered in obstacles:
-                                    obstacles.remove(hovered)
+                                if obstacles.get(hovered):
+                                    del obstacles[hovered]
                                 elif start_cell != hovered != end_cell:
-                                    obstacles.append(hovered)
+                                    obstacles[hovered] = True
                             ldown = False
                             lmoved = False
                     else:
@@ -400,7 +402,7 @@ while True:
                                     sel = get_hovered_cell()
                                     if start_cell == sel:
                                         start_cell = None
-                                    elif end_cell != sel and sel not in obstacles:
+                                    elif end_cell != sel and not obstacles.get(sel):
                                         start_cell = sel
                                 rmoved = False
                                 rdown = False
@@ -410,7 +412,9 @@ while True:
                                         sel = get_hovered_cell()
                                         if end_cell == sel:
                                             end_cell = None
-                                        elif start_cell != sel and sel not in obstacles:
+                                        elif start_cell != sel and not obstacles.get(
+                                            sel
+                                        ):
                                             end_cell = sel
                                 mdown = False
                                 mmoved = False
@@ -438,7 +442,7 @@ while True:
                         if end_cell == pos
                         else (
                             obstacle_color
-                            if pos in obstacles
+                            if obstacles.get(pos)
                             else (
                                 (
                                     xnode_color_path
@@ -447,12 +451,7 @@ while True:
                                         xnode_color_closed if xn.closed else xnode_color
                                     )
                                 )
-                                if (
-                                    xn := next(
-                                        (xn for xn in xnodes if xn.pos == pos), None
-                                    )
-                                )
-                                is not None
+                                if (xn := xnodes.get(pos)) is not None
                                 else cell_color_hover if pos == hovered else cell_color
                             )
                         )
