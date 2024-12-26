@@ -13,6 +13,7 @@ This project uses Pygame to simulate the A\* pathfinding algorithm.
 
 - Press <kbd>Space</kbd> to explore one step deeper in the algorithm (this is also used to begin pathfinding)
 - Press <kbd>&equals;</kbd> as the equivalent of repeatedly hitting <kbd>Space</kbd> (once every 10 milliseconds) until the shortest path has been found
+- Press <kbd>D</kbd> to toggle the ability to move diagonally (this is `True` by default)
 - Press <kbd>X</kbd> to clear the nodes explored by the algorithm
 
 - Press <kbd>Shift</kbd>+<kbd>X</kbd> to clear everything

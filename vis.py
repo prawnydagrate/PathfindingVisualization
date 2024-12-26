@@ -83,7 +83,7 @@ def distance(pos1: tuple[int, int], pos2: tuple[int, int]) -> int:
 
 
 def explore_step():
-    global exploring, fast
+    global exploring, fast, done
     if not exploring or start_cell is None or end_cell is None:
         fast = False
         return
@@ -100,17 +100,23 @@ def explore_step():
     cell.closed = True
     r, c = cell.pos
     for npos in (
-        (r - 1, c - 1),
-        (r - 1, c),
-        (r - 1, c + 1),
-        (r, c - 1),
-        (r + 1, c),
-        (r + 1, c - 1),
-        (r, c + 1),
-        (r + 1, c + 1),
+        (r, c - 1),  # left
+        (r + 1, c),  # down
+        (r - 1, c),  # up
+        (r, c + 1),  # right
+    ) + (
+        (
+            (r - 1, c - 1),  # nw
+            (r - 1, c + 1),  # ne
+            (r + 1, c + 1),  # se
+            (r + 1, c - 1),  # sw
+        )
+        if diag
+        else ()
     ):
         if npos == end_cell:
             exploring = False
+            done = True
             cell.path = True
             c = cell
             while (c := c.from_) is not None:
@@ -145,6 +151,7 @@ def save_state():
                 ss_end_cell_key: end_cell,
                 ss_obstacles_key: [k for k in obstacles if obstacles[k]],
                 ss_cols_key: cols,
+                ss_diag_key: diag,
             },
             f,
         )
@@ -152,7 +159,7 @@ def save_state():
 
 
 def load_state():
-    global cols, rows, cell_size, cells, start_cell, end_cell, obstacles
+    global cols, rows, cell_size, cells, start_cell, end_cell, obstacles, diag
     saved_state = {}
     if (
         len(sys.argv) == 2
@@ -194,6 +201,7 @@ def load_state():
         else []
     )
     obstacles = {k: True for k in lobstacles}
+    diag = False if saved_state.get(ss_diag_key) is False else True
     if obstacles.get(start_cell):
         start_cell = None
     if obstacles.get(end_cell):
@@ -235,6 +243,7 @@ ss_start_cell_key = "start_cell"
 ss_end_cell_key = "end_cell"
 ss_obstacles_key = "obstacles"
 ss_cols_key = "cols"
+ss_diag_key = "diag"
 
 EXPLOREEVENT = pygame.USEREVENT + 1
 
@@ -251,6 +260,7 @@ cells = []
 start_cell = None
 end_cell = None
 obstacles = {}
+diag = True
 load_state()
 
 ldown = False
@@ -262,6 +272,7 @@ mmoved = False
 shift = False
 
 exploring = False
+done = False
 fast = False
 xnodes = {}
 
@@ -285,6 +296,20 @@ while True:
                     case pygame.K_w:
                         if not shift:
                             save_state()
+                    case pygame.K_d:
+                        if not any(
+                            (
+                                shift,
+                                ldown,
+                                lmoved,
+                                rdown,
+                                rmoved,
+                                mdown,
+                                mmoved,
+                                exploring,
+                            )
+                        ):
+                            diag = not diag
                     case pygame.K_LSHIFT | pygame.K_RSHIFT:
                         shift = False
                     case pygame.K_UP:
@@ -299,14 +324,17 @@ while True:
                                     lmoved,
                                     rdown,
                                     rmoved,
+                                    mdown,
+                                    mmoved,
                                     exploring,
                                     xnodes,
+                                    done,
                                 )
                             )
                             and validate_selections()
                         ):
                             exploring = True
-                        if exploring:
+                        if exploring and not done:
                             explore_step()
                     case pygame.K_EQUALS:
                         if (
@@ -316,8 +344,9 @@ while True:
                                     lmoved,
                                     rdown,
                                     rmoved,
-                                    # exploring,
-                                    # xnodes,
+                                    mdown,
+                                    mmoved,
+                                    done,
                                 )
                             )
                             and validate_selections()
@@ -332,6 +361,7 @@ while True:
                             rdown = False
                             rmoved = False
                         exploring = False
+                        done = False
                         fast = False
                         xnodes.clear()
                     case _:
